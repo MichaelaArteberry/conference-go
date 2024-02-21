@@ -1,6 +1,29 @@
 from django.http import JsonResponse
 
+from common.json import ModelEncoder
+
 from .models import Conference, Location
+
+
+class LocationListEncoder(ModelEncoder):
+    model = Location
+    properties = ["name", "city"]
+
+class LocationDetailEncoder(ModelEncoder):
+    model = Location
+    properties = ["name", "city", "room_count", "created", "updated", "state"]
+
+    def get_extra_data(self, o):
+        return {"state": o.state.abbreviation}
+
+class ConferencesListEncoder(ModelEncoder):
+    model = Conference
+    properties = ["name"]
+
+class ConferenceDetailEncoder(ModelEncoder):
+    model = Conference
+    properties = ["name", "starts", "ends", "description", "created", "updated", "max_presentations", "max_attendees", "location"]
+    encoders = {"location": LocationListEncoder()}
 
 
 def api_list_conferences(request):
@@ -22,16 +45,9 @@ def api_list_conferences(request):
         ]
     }
     """
-    response = []
+
     conferences = Conference.objects.all()
-    for conference in conferences:
-        response.append(
-            {
-                "name": conference.name,
-                "href": conference.get_api_url(),
-            }
-        )
-    return JsonResponse({"conferences": response})
+    return JsonResponse({"conferences": conferences}, encoder=ConferencesListEncoder)
 
 
 def api_show_conference(request, id):
@@ -60,22 +76,7 @@ def api_show_conference(request, id):
     }
     """
     conference = Conference.objects.get(id=id)
-    return JsonResponse(
-        {
-            "name": conference.name,
-            "starts": conference.starts,
-            "ends": conference.ends,
-            "description": conference.description,
-            "created": conference.created,
-            "updated": conference.updated,
-            "max_presentations": conference.max_presentations,
-            "max_attendees": conference.max_attendees,
-            "location": {
-                "name": conference.location.name,
-                "href": conference.location.get_api_url(),
-            },
-        }
-    )
+    return JsonResponse(conference, encoder=ConferenceDetailEncoder, safe=False)
 
 
 
@@ -100,8 +101,7 @@ def api_list_locations(request):
     """
 
     locations = Location.objects.all()
-    results = [{"name": locations.name, "href": locations.get_api_url(),} for location in locations]
-    return JsonResponse({"locations": results})
+    return JsonResponse({"locations": locations}, encoder=LocationListEncoder)
 
 
 
@@ -123,12 +123,4 @@ def api_show_location(request, id):
     }
     """
     location = Location.objects.get(id=id)
-    return JsonResponse(
-        {
-        "name": location.name,
-        "city": location.name,
-        "created": location.created,
-        "updated": location.updated,
-        "state": location.state.abbreviation,
-        }
-    )
+    return JsonResponse(location, encoder=LocationDetailEncoder, safe=False)
