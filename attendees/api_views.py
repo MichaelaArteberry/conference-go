@@ -1,8 +1,15 @@
+import json
 from django.http import JsonResponse
-
+from events.models import Conference
 from .models import Attendee
+from common.json import ModelEncoder
+from django.views.decorators.http import require_http_methods
 
+class AttendeesListEncoder(ModelEncoder):
+    model = Attendee
+    properties = ["name"]
 
+@require_http_methods(["GET", "POST"])
 def api_list_attendees(request, conference_id):
     """
     Lists the attendees names and the link to the attendee
@@ -24,17 +31,23 @@ def api_list_attendees(request, conference_id):
     }
     """
     response = []
-    attendee = Attendee.objects.all()
-    for attendees in attendee:
-        response.append(
-            {
-                "name": attendees.name,
-                "href": attendees.get_api_url(),
-            }
-        )
-    return JsonResponse(
-        {"attendees": response}
-    )
+
+    if request.method == "GET":
+        attendees = Attendee.objects.filter(conference=conference_id)
+        return JsonResponse(attendees, encoder=AttendeesListEncoder, safe=False)
+
+    else:
+        content = json.loads(request.body)
+
+        try:
+            conference = Conference.objects.get(id=content["conference_id"])
+            content["conference"] = conference
+        except Conference.DoesNotExist:
+            return JsonResponse({"message": "Conference could not be created."})
+
+        attendee = Attendee.objects.create(**content)
+
+        return JsonResponse(attendee, encoder=AttendeesListEncoder, safe=False)
 
 
 def api_show_attendee(request, id):

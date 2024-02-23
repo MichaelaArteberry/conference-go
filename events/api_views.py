@@ -1,13 +1,8 @@
-from django.http import JsonResponse
-
-from common.json import ModelEncoder
-
-from .models import Conference, Location, State
-
-from django.views.decorators.http import require_http_methods
-
 import json
-
+from django.http import JsonResponse
+from common.json import ModelEncoder
+from .models import Conference, Location, State
+from django.views.decorators.http import require_http_methods
 
 class LocationListEncoder(ModelEncoder):
     model = Location
@@ -51,7 +46,7 @@ def api_list_conferences(request):
     """
 
     conferences = Conference.objects.all()
-    return JsonResponse({"conferences": conferences}, encoder=ConferencesListEncoder)
+    return JsonResponse({"conferences": conferences}, encoder=ConferencesListEncoder, safe=False)
 
 
 def api_show_conference(request, id):
@@ -105,22 +100,21 @@ def api_list_locations(request):
     """
     if request.method == "GET":
         locations = Location.objects.all()
-        return JsonResponse({"locations": locations}, encoder=LocationListEncoder)
 
-    elif request.method == "POST":
-        content = json.loads(request.body)
-        state = State.objects.get(abbreviation=content["state"])
-        content["state"] = state
-
-        location = Location.objects.create(**content)
-        return JsonResponse(location, encoder=LocationDetailEncoder, safe=False)
+        return JsonResponse({"locations": locations}, encoder=LocationListEncoder, safe=False)
 
     else:
+        content = json.loads(request.body)
+
         try:
             state = State.objects.get(abbreviation=content["state"])
             content["state"] = state
         except State.DoesNotExist:
             return JsonResponse({"message": "Invalid state abbreviation"}, status=400)
+
+        location = Location.objects.create(**content)
+
+        return JsonResponse({"message": "Invalid state abbreviation"}, safe=False)
 
 
 @require_http_methods(["DELETE", "GET", "PUT"])
@@ -141,24 +135,27 @@ def api_show_location(request, id):
         "state": the two-letter abbreviation for the state,
     }
     """
+
     if request.method == "Get":
         location = Location.objects.get(id=id)
-        return JsonResponse(location, encoder=LocationDetailEncoder)
+        return JsonResponse(location, encoder=LocationDetailEncoder, safe=False)
 
+# Deleting a location
     elif request.method == "DELETE":
         count, _ = Location.objects.filter(id=id).delete()
         return JsonResponse({"deleted": count > 0})
 
+# Updating a location
     else:
         content = json.loads(request.body)
+
         try:
-            if "state" in content:
-                state = State.objects.get(abbreviation=content["state"])
+            state = State.objects.get(abbreviation=content["state"])
             content["state"] = state
         except State.DoesNotExist:
             return JsonResponse({"message": "Invalid state abbreviation"}, status=400,)
 
-    Location.objects.filter(id=id).update(**content)
+        Location.objects.filter(id=id).update(**content)
+        location = Location.objects.get(id=id)
 
-    location = Location.objects.get(id=id)
-    return JsonResponse(location, encoder=LocationDetailEncoder, safe=False,)
+        return JsonResponse(location, encoder=LocationDetailEncoder, safe=False,)
