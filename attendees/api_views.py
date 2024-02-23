@@ -9,6 +9,10 @@ class AttendeesListEncoder(ModelEncoder):
     model = Attendee
     properties = ["name"]
 
+class AttendeeDetailEncoder(ModelEncoder):
+    model = Attendee
+    properties = ["email", "name"]
+
 @require_http_methods(["GET", "POST"])
 def api_list_attendees(request, conference_id):
     """
@@ -40,7 +44,7 @@ def api_list_attendees(request, conference_id):
         content = json.loads(request.body)
 
         try:
-            conference = Conference.objects.get(id=content["conference_id"])
+            conference = Conference.objects.get(id=conference_id)
             content["conference"] = conference
         except Conference.DoesNotExist:
             return JsonResponse({"message": "Conference could not be created."})
@@ -50,6 +54,7 @@ def api_list_attendees(request, conference_id):
         return JsonResponse(attendee, encoder=AttendeesListEncoder, safe=False)
 
 
+@require_http_methods
 def api_show_attendee(request, id):
     """
     Returns the details for the Attendee model specified
@@ -70,16 +75,26 @@ def api_show_attendee(request, id):
         }
     }
     """
-    attendee = Attendee.objects.get(id=id)
-    return JsonResponse(
-        {
-            "email": attendee.email,
-        "name": attendee.name,
-        "company_name": attendee.company_name,
-        "created": attendee.created,
-            "conference": {
-                "name": attendee.conference.name,
-                "href": attendee.conference.get_api_url(),
-            },
-        }
-    )
+    if request.method == "GET":
+        attendee = Attendee.objects.filter(attendee=attendee)
+        return JsonResponse(attendee, encoder=AttendeeDetailEncoder, safe=False)
+
+# Deleting a location
+    elif request.method == "DELETE":
+        count, _ = Attendee.objects.filter(id=id).delete()
+        return JsonResponse({"deleted": count > 0})
+
+# Updating a location
+    else:
+        content = json.loads(request.body)
+
+        try:
+            attendee = Attendee.objects.get(id=id)
+            content["attendee"] = attendee
+        except Attendee.DoesNotExist:
+            return JsonResponse({"message": "Invalid attendee. Check spelling and try again."}, status=400,)
+
+        Attendee.objects.filter(id=id).update(**content)
+        attendee = Attendee.objects.get(id=id)
+
+        return JsonResponse(attendee, encoder=AttendeeDetailEncoder, safe=False,)
