@@ -26,6 +26,7 @@ class ConferenceDetailEncoder(ModelEncoder):
     encoders = {"location": LocationListEncoder()}
 
 
+@require_http_methods(["GET", "POST"])
 def api_list_conferences(request):
     """
     Lists the conference names and the link to the conference.
@@ -64,7 +65,7 @@ def api_list_conferences(request):
     return JsonResponse(conference, encoder=ConferenceDetailEncoder, safe=False,)
 
 
-
+@require_http_methods(["GET", "PUT", "DELETE"])
 def api_show_conference(request, id):
     """
     Returns the details for the Conference model specified
@@ -90,8 +91,28 @@ def api_show_conference(request, id):
         }
     }
     """
-    conference = Conference.objects.get(id=id)
-    return JsonResponse(conference, encoder=ConferenceDetailEncoder, safe=False)
+    if request.method == "Get":
+        location = Conference.objects.get(id=id)
+        return JsonResponse(location, encoder=ConferenceDetailEncoder, safe=False)
+
+    elif request.method == "DELETE":
+        count, _ = Conference.objects.filter(id=id).delete()
+        return JsonResponse({"deleted": count > 0})
+
+    else:
+        content = json.loads(request.body)
+
+        try:
+            conference = Conference.objects.get(id=id)
+            content["conference"] = conference
+        except State.DoesNotExist:
+            return JsonResponse({"message": "Invalid"}, status=400,)
+
+        weather = get_weather(content["location"].city, content["location"].state)
+        Conference.objects.filter(id=id).update(**content)
+        conference = Conference.objects.get(id=id)
+
+        return JsonResponse(conference, encoder=ConferenceDetailEncoder, safe=False,)
 
 
 @require_http_methods(["GET", "POST"])
@@ -128,7 +149,7 @@ def api_list_locations(request):
         except State.DoesNotExist:
             return JsonResponse({"message": "Invalid state abbreviation"}, status=400)
 
-        photo = get_photo("city", "state")
+        photo = get_photo(content["city"], content["state"].abbreviation)
         content.update(photo)
 
         location = Location.objects.create(**content)
@@ -159,12 +180,10 @@ def api_show_location(request, id):
         location = Location.objects.get(id=id)
         return JsonResponse(location, encoder=LocationDetailEncoder, safe=False)
 
-# Deleting a location
     elif request.method == "DELETE":
         count, _ = Location.objects.filter(id=id).delete()
         return JsonResponse({"deleted": count > 0})
 
-# Updating a location
     else:
         content = json.loads(request.body)
 
