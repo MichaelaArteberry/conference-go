@@ -1,6 +1,4 @@
-im# This code snippet is a Python Django application that defines two API endpoints for managing
-# presentations. Here is a breakdown of what the code is doing:
-port json
+import json
 from django.http import JsonResponse
 from common.json import ModelEncoder
 from .models import Presentation
