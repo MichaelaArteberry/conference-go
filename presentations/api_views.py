@@ -11,6 +11,10 @@ class PresentationListEncoder(ModelEncoder):
     model = Presentation
     properties = ["presenter_name", "presenter_email", "title", "synopsis", "status"]
 
+    def get_extra_data(self, o):
+        return {"status": o.status.name}
+
+
 class PresentationDetailEncoder(ModelEncoder):
     model = Presentation
     properties = ["presenter_name", "presenter_email", "title", "synopsis", "status", "conference"]
@@ -43,25 +47,21 @@ def api_list_presentations(request, conference_id):
         presentations = Presentation.objects.all()
         return JsonResponse({"presentations": presentations}, encoder=PresentationListEncoder, safe=False)
 
-    elif request.method == "DELETE":
-        presentation = Presentation.objects.filter(id=id).delete()
-        return JsonResponse({"deleted": count > 0},safe=False)
-
     else:
         content = json.loads(request.body)
 
         try:
-            presentation = Presentation.objects.get(id=content["presentation"])
-            content["location"] = location
+            presentation = Presentation.objects.get(id=conference_id)
+            content["conference"] = location
 
         except Presentation.DoesNotExist:
             return JsonResponse({"message": "Could not find presentation"}, status=400,)
 
-    presentation = Presentation.objects.create(**content)
+    presentation = Presentation.create(**content)
     return JsonResponse(presentation, encoder=PresentationListEncoder, safe=False,)
 
 
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "PUT", "DELETE"])
 def api_show_presentation(request, id):
     """
     Returns the details for the Presentation model specified
