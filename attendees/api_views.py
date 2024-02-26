@@ -76,25 +76,30 @@ def api_show_attendee(request, id):
     }
     """
     if request.method == "GET":
-        attendee = Attendee.objects.filter(attendee=attendee)
-        return JsonResponse(attendee, encoder=AttendeeDetailEncoder, safe=False)
-
-# Deleting a location
+        attendee = Attendee.objects.get(id=id)
+        return JsonResponse(
+        attendee,
+        encoder=AttendeeDetailEncoder,
+        safe=False
+        )
     elif request.method == "DELETE":
         count, _ = Attendee.objects.filter(id=id).delete()
         return JsonResponse({"deleted": count > 0})
-
-# Updating a location
     else:
         content = json.loads(request.body)
-
         try:
-            attendee = Attendee.objects.get(id=id)
-            content["attendee"] = attendee
-        except Attendee.DoesNotExist:
-            return JsonResponse({"message": "Invalid attendee. Check spelling and try again."}, status=400,)
+            if "conference" in content:
+                conference = Conference.objects.get(name=content["conference"])
+                content["conference"] = conference
+        except Conference.DoesNotExist:
+            return JsonResponse(
+                {"message": "Invalid conference name"},
+                status=400,
+            )
 
-        Attendee.objects.filter(id=id).update(**content)
-        attendee = Attendee.objects.get(id=id)
-
-        return JsonResponse(attendee, encoder=AttendeeDetailEncoder, safe=False,)
+        attendee = Attendee.objects.create(**content)
+        return JsonResponse(
+            attendee,
+            encoder=AttendeeDetailEncoder,
+            safe=False,
+        )

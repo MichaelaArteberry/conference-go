@@ -1,3 +1,6 @@
+im# This code snippet is a Python Django application that defines two API endpoints for managing
+# presentations. Here is a breakdown of what the code is doing:
+port json
 from django.http import JsonResponse
 from common.json import ModelEncoder
 from .models import Presentation
@@ -85,24 +88,25 @@ def api_show_presentation(request, id):
     }
     """
     if request.method == "GET":
-        presentation = Presentation.objects.get(id=id)
-        return JsonResponse(presentation, encoder=PresentationDetailEncoder, safe=False)
-
-    elif request.method == "DELETE":
-        presentation = Presentation.objects.filter(id=id).delete()
-        return JsonResponse({"deleted": count > 0},safe=False)
-
+        presentations = Presentation.objects.filter(conference=conference_id)
+        return JsonResponse(
+        {"presentations": presentations},
+        encoder=PresentationDetailEncoder,
+        )
     else:
         content = json.loads(request.body)
+
         try:
-            if "conference" in content:
-                conference = Conference.objects.get(name=content["conference"])
-                content["conference"] = conference
-
-        except Location.DoesNotExist:
-            return JsonResponse({"message": "Invalid"}, status=400,)
-
-    presentation = Presentation.objects.filter(id=id).update(**content)
-    presentation = Presentation.objects.get(id=id)
-
-    return JsonResponse(presentation, encoder=PresentationDetailEncoder, safe=False)
+            conference = Conference.objects.get(id=conference_id)
+            content["conference"] = conference
+        except Conference.DoesNotExist:
+            return JsonResponse(
+                {"message": "Invalid Conference Abbreviation"},
+                status=400,
+            )
+    presentation = Presentation.create(**content)
+    return JsonResponse(
+            presentation,
+            encoder=PresentationDetailEncoder,
+            safe=False,
+        )
